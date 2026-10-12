@@ -16,6 +16,7 @@ It is **read-only**: the app only runs `SELECT` statements.
 ```
 rds-explorer/
 ├── app.py                  # Flask app: DB connection + JSON API
+├── seed.py                 # connection check + demo data loader
 ├── templates/index.html    # page layout
 ├── static/css/style.css    # styling
 ├── static/js/app.js        # UI logic + 3D scene (Three.js)
@@ -186,7 +187,32 @@ docker logs -f rds-explorer        # live logs (Ctrl+C to stop following)
 ### 5.5 Open the UI
 In your browser: **`http://<EC2-PUBLIC-IP>:5000`**
 
-### 5.6 Everyday commands
+If it says **not connected**, the red box under the 3D view explains why
+(unreachable host, wrong password, wrong database name…). Fix `.env`, then
+`docker rm -f rds-explorer` and run step 5.3 again.
+
+### 5.6 (Optional) Load demo data into RDS
+Empty database, or want sample data to play with? `seed.py` ships inside the same image.
+
+```bash
+# 1. just test the connection - changes nothing
+docker run --rm --env-file .env rds-explorer python seed.py --check
+
+# 2. create demo schemas (sales, hr) and fill them
+docker run --rm --env-file .env rds-explorer python seed.py
+```
+
+It creates `sales.customers` (300), `sales.products` (40), `sales.orders` (5,000),
+`hr.departments` (6) and `hr.employees` (120). Your own tables are never touched;
+running it again skips tables that already have data, and `--reset` reloads them.
+
+> The seed needs a user that can `CREATE SCHEMA`/`CREATE TABLE` — use the RDS **master user**
+> for this one command. The app itself can keep using the read-only user; the script prints the
+> `GRANT` lines to give it access to the new schemas.
+
+Then refresh the browser.
+
+### 5.7 Everyday commands
 ```bash
 docker stop rds-explorer           # stop
 docker start rds-explorer          # start again
@@ -238,6 +264,7 @@ Two ideas worth remembering:
 
 | Symptom | Likely cause → fix |
 |---|---|
+| First step for any connection problem | Run `docker run --rm --env-file .env rds-explorer python seed.py --check` — it prints the exact cause. |
 | UI shows *"could not connect / timeout expired"* | RDS security group doesn't allow the EC2 security group on 5432/3306 (step 2.2). Test with `nc -zv`. |
 | *"password authentication failed"* / *"Access denied"* | Wrong `DB_USER`/`DB_PASSWORD` in `.env`. Re-run the container after fixing. |
 | *"database … does not exist"* | `DB_NAME` must be the database name, not the instance identifier. |

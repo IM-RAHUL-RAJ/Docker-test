@@ -148,7 +148,7 @@ def health():
             conn.execute(text("SELECT 1"))
         return jsonify(status="ok")
     except SQLAlchemyError as exc:
-        return jsonify(status="error", error=str(exc.__cause__ or exc)), 503
+        return jsonify(status="error", error=explain_db_error(exc)), 503
 
 
 @app.get("/api/overview")
@@ -251,10 +251,33 @@ def handle_not_found(exc):
     return jsonify(error=str(exc)), 404
 
 
+def explain_db_error(exc) -> str:
+    """Turn common connection errors into a plain-English hint."""
+    msg = str(getattr(exc, "orig", None) or exc.__cause__ or exc).strip()
+    low = msg.lower()
+    hints = [
+        (("timeout expired", "timed out", "can't connect", "connection refused", "no route"),
+         "The app can't reach the database host. Check DB_HOST/DB_PORT and that the RDS "
+         "security group allows inbound 5432/3306 from this EC2 instance's security group."),
+        (("could not translate host", "name or service not known", "nodename nor servname", "getaddrinfo"),
+         "DB_HOST can't be resolved. Copy the exact RDS endpoint (no 'https://', no port)."),
+        (("password authentication failed", "access denied"),
+         "Wrong DB_USER or DB_PASSWORD."),
+        (("does not exist", "unknown database"),
+         "DB_NAME doesn't exist on this server. Use the database name, not the RDS instance identifier."),
+        (("no pg_hba.conf entry", "ssl"),
+         "The server requires SSL. Add ?sslmode=require to DATABASE_URL (PostgreSQL)."),
+    ]
+    for needles, hint in hints:
+        if any(n in low for n in needles):
+            return f"{hint}  [details: {msg.splitlines()[0]}]"
+    return f"Database error: {msg.splitlines()[0] if msg else exc.__class__.__name__}"
+
+
 @app.errorhandler(SQLAlchemyError)
 def handle_db_error(exc):
     app.logger.exception("Database error")
-    return jsonify(error=f"Database error: {exc.__cause__ or exc}"), 500
+    return jsonify(error=explain_db_error(exc)), 500
 
 
 if __name__ == "__main__":
