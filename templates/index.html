@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RDS Explorer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <!-- Three.js (3D engine) loaded from a CDN via an import map -->
+  <script type="importmap">
+    { "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    } }
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo">◆</span> RDS Explorer</div>
+    <div id="conn" class="conn">connecting…</div>
+  </header>
+
+  <div class="layout">
+    <!-- Left: schemas and tables -->
+    <aside class="sidebar">
+      <input id="search" class="search" placeholder="Filter tables…" autocomplete="off">
+      <nav id="tree" class="tree"></nav>
+    </aside>
+
+    <main class="main">
+      <!-- Stat cards -->
+      <section class="stats" id="stats"></section>
+
+      <!-- 3D scene -->
+      <section class="panel scene-panel">
+        <div class="panel-head">
+          <h2 id="scene-title">Database skyline</h2>
+          <div class="hint" id="scene-hint">Each tower is a table · height = rows · drag to orbit · click a tower to open it</div>
+        </div>
+        <div id="scene" class="scene">
+          <div id="tooltip" class="tooltip"></div>
+        </div>
+        <div id="viz-controls" class="viz-controls hidden">
+          <label>Label column <select id="x-col"></select></label>
+          <label>Value column <select id="y-col"></select></label>
+          <button id="back-skyline" class="btn ghost">← Back to skyline</button>
+        </div>
+      </section>
+
+      <!-- Table details -->
+      <section id="table-view" class="hidden">
+        <div class="tabs">
+          <button class="tab active" data-tab="data">Data</button>
+          <button class="tab" data-tab="structure">Structure</button>
+        </div>
+
+        <div id="tab-data" class="panel">
+          <div class="panel-head">
+            <h2 id="table-title"></h2>
+            <div class="pager">
+              <select id="page-size">
+                <option>25</option><option selected>50</option><option>100</option><option>250</option>
+              </select>
+              <button id="prev" class="btn">‹</button>
+              <span id="page-info"></span>
+              <button id="next" class="btn">›</button>
+            </div>
+          </div>
+          <div class="grid-wrap"><table id="grid" class="grid"></table></div>
+        </div>
+
+        <div id="tab-structure" class="panel hidden">
+          <div id="structure"></div>
+        </div>
+      </section>
+
+      <div id="error" class="error hidden"></div>
+    </main>
+  </div>
+
+  <script type="module" src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
