@@ -54,26 +54,7 @@ You need the following ready **once**:
 AWS Console → **RDS** → **Databases** → click your DB → **Connectivity & security** → copy the **Endpoint**
 (looks like `mydb.abc123xyz.ap-south-1.rds.amazonaws.com`) and note the **Port** (5432 Postgres / 3306 MySQL).
 
-### 2.2 Allow the EC2 instance to reach RDS
-RDS → your DB → **VPC security groups** → **Inbound rules** → add:
-
-| Type | Port | Source |
-|---|---|---|
-| PostgreSQL (or MySQL/Aurora) | 5432 (or 3306) | **the security group of your EC2 instance** |
-
-Test it from the EC2 box:
-```bash
-nc -zv <RDS-ENDPOINT> 5432        # should say "succeeded" / "open"
-```
-
-### 2.3 Open the app's port on EC2
-EC2 → your instance → **Security** → security group → **Inbound rules** → add:
-
-| Type | Port | Source |
-|---|---|---|
-| Custom TCP | 5000 | **My IP** (don't use 0.0.0.0/0 — the app has no login) |
-
-### 2.4 (Recommended) Create a read-only DB user
+### 2.2 (Recommended) Create a read-only DB user
 The app only reads, so give it a user that *can* only read.
 
 **PostgreSQL** (connect with `psql -h <endpoint> -U <admin> -d <db>`):
@@ -265,11 +246,11 @@ Two ideas worth remembering:
 | Symptom | Likely cause → fix |
 |---|---|
 | First step for any connection problem | Run `docker run --rm --env-file .env rds-explorer python seed.py --check` — it prints the exact cause. |
-| UI shows *"could not connect / timeout expired"* | RDS security group doesn't allow the EC2 security group on 5432/3306 (step 2.2). Test with `nc -zv`. |
+| UI shows *"could not connect / timeout expired"* | RDS security group doesn't allow the EC2 security group on 5432/3306. Test with `nc -zv <RDS-ENDPOINT> 5432`. |
 | *"password authentication failed"* / *"Access denied"* | Wrong `DB_USER`/`DB_PASSWORD` in `.env`. Re-run the container after fixing. |
 | *"database … does not exist"* | `DB_NAME` must be the database name, not the instance identifier. |
-| Browser can't reach `:5000` at all | EC2 security group missing port 5000 (step 2.3), or container not running (`docker ps`). |
-| Tables show **—** for rows | The DB user lacks `SELECT` on that table — grant it (step 2.4). |
+| Browser can't reach `:5000` at all | EC2 security group missing port 5000 or container not running (`docker ps`). |
+| Tables show **—** for rows | The DB user lacks `SELECT` on that table — grant it (step 2.2). |
 | Page loads but the 3D area is empty | The browser needs internet to load Three.js and fonts from the CDN; check the browser console. |
 | `docker: permission denied` | You skipped logging out after `usermod -aG docker` (step 5.1). |
 | Changed `.env` but nothing changed | Env vars are read at start-up: `docker rm -f rds-explorer` and `docker run …` again. |
@@ -279,7 +260,7 @@ Two ideas worth remembering:
 ## 9. Security notes
 
 - The app has **no login**. Keep port 5000 restricted to your IP, or put it behind a VPN / load balancer with auth.
-- Use the **read-only** DB user from step 2.4.
+- Use the **read-only** DB user from step 2.2.
 - Never commit `.env` and never `COPY` it into an image — always `--env-file` at run time.
 - Table and schema names from the URL are checked against the real list from the database before
   any query is built, and values are never pasted into SQL — so the API can't be used for SQL injection.
