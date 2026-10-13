@@ -42,20 +42,17 @@ DB_PASSWORD=<your-db-password>
 
 ## 4. Build the image
 
-```bash
-sudo docker build -t rds-explorer .
-```
+Write the command yourself. It should build an image named `rds-explorer` from the `Dockerfile` in this folder.
 
 ## 5. Run the container
 
-```bash
-sudo docker run -d \
-  --name rds-explorer \
-  --env-file .env \
-  -p 5000:5000 \
-  --restart unless-stopped \
-  rds-explorer
-```
+Write the command yourself. The container should:
+
+- run in the background
+- be named `rds-explorer`
+- read its settings from the `.env` file
+- map port `5000` on the instance to port `5000` in the container
+- restart automatically after a reboot
 
 ## 6. Check it works
 
@@ -85,9 +82,4 @@ http://<EC2-PUBLIC-IP>:5000
 
 ## 🔄 After changing `.env` or the code
 
-```bash
-sudo docker rm -f rds-explorer
-sudo docker build -t rds-explorer .
-```
-
-Then repeat step 5.
+Remove the container, then repeat steps 4 and 5.

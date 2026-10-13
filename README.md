@@ -115,29 +115,17 @@ exit   # log out and back in
 Check: `docker --version`
 
 ### 5.2 Build the image
-```bash
-cd ~/Docker-test
-docker build -t rds-explorer .
-```
-`-t rds-explorer` gives the image a name. The `.` means "use the Dockerfile in this folder".
+Write the command yourself. From `~/Docker-test`, build an image named `rds-explorer` using the
+Dockerfile in this folder.
 
 ### 5.3 Run the container
-```bash
-docker run -d \
-  --name rds-explorer \
-  --env-file .env \
-  -p 5000:5000 \
-  --restart unless-stopped \
-  rds-explorer
-```
+Write the command yourself. The container should:
 
-| Flag | Meaning |
-|---|---|
-| `-d` | run in the background |
-| `--name rds-explorer` | a friendly name for the container |
-| `--env-file .env` | pass your DB settings in as environment variables |
-| `-p 5000:5000` | EC2 port 5000 → container port 5000 |
-| `--restart unless-stopped` | come back up after a reboot |
+- run in the background
+- be named `rds-explorer`
+- read your DB settings from the `.env` file
+- map EC2 port 5000 to container port 5000
+- come back up after a reboot
 
 ### 5.4 Check it works
 ```bash
@@ -156,12 +144,12 @@ If it says **not connected**, the red box under the 3D view explains why
 ### 5.6 (Optional) Load demo data into RDS
 Empty database, or want sample data to play with? `seed.py` ships inside the same image.
 
-```bash
-# 1. just test the connection - changes nothing
-docker run --rm --env-file .env rds-explorer python seed.py --check
+Run it as a one-off container from the `rds-explorer` image, with the same `.env` file, using one
+of these as the command:
 
-# 2. create demo schemas (sales, hr) and fill them
-docker run --rm --env-file .env rds-explorer python seed.py
+```bash
+python seed.py --check     # just test the connection - changes nothing
+python seed.py             # create demo schemas (sales, hr) and fill them
 ```
 
 It creates `sales.customers` (300), `sales.products` (40), `sales.orders` (5,000),
@@ -177,12 +165,9 @@ Then refresh the browser.
 docker stop rds-explorer           # stop
 docker start rds-explorer          # start again
 docker rm -f rds-explorer          # delete the container
-
-# after changing the code: rebuild and re-run
-docker rm -f rds-explorer
-docker build -t rds-explorer .
-docker run -d --name rds-explorer --env-file .env -p 5000:5000 --restart unless-stopped rds-explorer
 ```
+
+After changing the code: delete the container, then repeat steps 5.2 and 5.3.
 
 ---
 
@@ -224,7 +209,7 @@ Two ideas worth remembering:
 
 | Symptom | Likely cause → fix |
 |---|---|
-| First step for any connection problem | Run `docker run --rm --env-file .env rds-explorer python seed.py --check` — it prints the exact cause. |
+| First step for any connection problem | Run `python seed.py --check` in a one-off container (step 5.6) — it prints the exact cause. |
 | UI shows *"could not connect / timeout expired"* | RDS security group doesn't allow the EC2 security group on 5432/3306. Test with `nc -zv <RDS-ENDPOINT> 5432`. |
 | *"password authentication failed"* / *"Access denied"* | Wrong `DB_USER`/`DB_PASSWORD` in `.env`. Re-run the container after fixing. |
 | *"database … does not exist"* | `DB_NAME` must be the database name, not the instance identifier. |
@@ -232,7 +217,7 @@ Two ideas worth remembering:
 | Tables show **—** for rows | The DB user lacks `SELECT` on that table — grant it. |
 | Page loads but the 3D area is empty | The browser needs internet to load Three.js and fonts from the CDN; check the browser console. |
 | `docker: permission denied` | You skipped logging out after `usermod -aG docker` (step 5.1). |
-| Changed `.env` but nothing changed | Env vars are read at start-up: `docker rm -f rds-explorer` and `docker run …` again. |
+| Changed `.env` but nothing changed | Env vars are read at start-up: `docker rm -f rds-explorer` and run step 5.3 again. |
 
 ---
 
