@@ -54,24 +54,6 @@ You need the following ready **once**:
 AWS Console → **RDS** → **Databases** → click your DB → **Connectivity & security** → copy the **Endpoint**
 (looks like `mydb.abc123xyz.ap-south-1.rds.amazonaws.com`) and note the **Port** (5432 Postgres / 3306 MySQL).
 
-### 2.2 (Recommended) Create a read-only DB user
-The app only reads, so give it a user that *can* only read.
-
-**PostgreSQL** (connect with `psql -h <endpoint> -U <admin> -d <db>`):
-```sql
-CREATE USER explorer WITH PASSWORD 'StrongPassword123!';
-GRANT CONNECT ON DATABASE mydatabase TO explorer;
--- repeat these two lines for every schema you want to see:
-GRANT USAGE ON SCHEMA public TO explorer;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO explorer;
-```
-
-**MySQL**:
-```sql
-CREATE USER 'explorer'@'%' IDENTIFIED BY 'StrongPassword123!';
-GRANT SELECT, SHOW VIEW ON mydatabase.* TO 'explorer'@'%';
-```
-
 > **MySQL note:** in MySQL a "schema" is the same thing as a "database". The sidebar will show
 > every database the user can see.
 
@@ -79,13 +61,12 @@ GRANT SELECT, SHOW VIEW ON mydatabase.* TO 'explorer'@'%';
 
 ## 3. Get the code onto EC2
 
-SSH into your instance, then either `git clone` your repo or copy the folder up:
+On the EC2 instance:
 
 ```bash
-# from your laptop
-scp -i my-key.pem -r rds-explorer ec2-user@<EC2-PUBLIC-IP>:~/
-ssh -i my-key.pem ec2-user@<EC2-PUBLIC-IP>
-cd ~/rds-explorer
+cd ~
+git clone https://github.com/IM-RAHUL-RAJ/Docker-test.git
+cd Docker-test
 ```
 
 ---
@@ -94,7 +75,7 @@ cd ~/rds-explorer
 
 ```bash
 cp .env.example .env
-nano .env          # fill in your values
+vi .env            # fill in your values
 ```
 
 ```ini
@@ -102,8 +83,8 @@ DB_ENGINE=postgresql          # or mysql
 DB_HOST=mydb.abc123xyz.ap-south-1.rds.amazonaws.com
 DB_PORT=5432                  # 3306 for mysql
 DB_NAME=mydatabase
-DB_USER=explorer
-DB_PASSWORD=StrongPassword123!
+DB_USER=postgres
+DB_PASSWORD=your-db-password
 ```
 
 > 🔒 `.env` holds your password. It is listed in `.gitignore` and `.dockerignore`, so it is never
@@ -120,7 +101,7 @@ DB_PASSWORD=StrongPassword123!
 sudo dnf install -y docker
 sudo systemctl enable --now docker
 sudo usermod -aG docker $USER
-exit   # log out and SSH back in so the group change applies
+exit   # log out and back in so the group change applies
 ```
 
 **Ubuntu**
@@ -128,14 +109,14 @@ exit   # log out and SSH back in so the group change applies
 sudo apt-get update && sudo apt-get install -y docker.io
 sudo systemctl enable --now docker
 sudo usermod -aG docker $USER
-exit   # log out and SSH back in
+exit   # log out and back in
 ```
 
 Check: `docker --version`
 
 ### 5.2 Build the image
 ```bash
-cd ~/rds-explorer
+cd ~/Docker-test
 docker build -t rds-explorer .
 ```
 `-t rds-explorer` gives the image a name. The `.` means "use the Dockerfile in this folder".
@@ -187,9 +168,7 @@ It creates `sales.customers` (300), `sales.products` (40), `sales.orders` (5,000
 `hr.departments` (6) and `hr.employees` (120). Your own tables are never touched;
 running it again skips tables that already have data, and `--reset` reloads them.
 
-> The seed needs a user that can `CREATE SCHEMA`/`CREATE TABLE` — use the RDS **master user**
-> for this one command. The app itself can keep using the read-only user; the script prints the
-> `GRANT` lines to give it access to the new schemas.
+> The seed needs a user that can `CREATE SCHEMA`/`CREATE TABLE` — the RDS **master user** can.
 
 Then refresh the browser.
 
@@ -250,7 +229,7 @@ Two ideas worth remembering:
 | *"password authentication failed"* / *"Access denied"* | Wrong `DB_USER`/`DB_PASSWORD` in `.env`. Re-run the container after fixing. |
 | *"database … does not exist"* | `DB_NAME` must be the database name, not the instance identifier. |
 | Browser can't reach `:5000` at all | EC2 security group missing port 5000 or container not running (`docker ps`). |
-| Tables show **—** for rows | The DB user lacks `SELECT` on that table — grant it (step 2.2). |
+| Tables show **—** for rows | The DB user lacks `SELECT` on that table — grant it. |
 | Page loads but the 3D area is empty | The browser needs internet to load Three.js and fonts from the CDN; check the browser console. |
 | `docker: permission denied` | You skipped logging out after `usermod -aG docker` (step 5.1). |
 | Changed `.env` but nothing changed | Env vars are read at start-up: `docker rm -f rds-explorer` and `docker run …` again. |
@@ -260,7 +239,6 @@ Two ideas worth remembering:
 ## 9. Security notes
 
 - The app has **no login**. Keep port 5000 restricted to your IP, or put it behind a VPN / load balancer with auth.
-- Use the **read-only** DB user from step 2.2.
 - Never commit `.env` and never `COPY` it into an image — always `--env-file` at run time.
 - Table and schema names from the URL are checked against the real list from the database before
   any query is built, and values are never pasted into SQL — so the API can't be used for SQL injection.
